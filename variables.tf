@@ -41,7 +41,7 @@ variable "credentials_file" {
 variable "node_count" {
   description = "Number of nodes in node pool"
   type        = number
-  default     = 3
+  default     = 1
 }
 
 variable "machine_type" {
