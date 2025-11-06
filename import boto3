@@ -1,0 +1,61 @@
+import boto3
+import re
+import argparse
+
+# -------------------------------
+# Command-line argument for AWS profile
+# -------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument('--profile', required=True, help='AWS CLI profile name')
+args = parser.parse_args()
+
+# -------------------------------
+# Create boto3 session using specified profile
+# -------------------------------
+session = boto3.Session(profile_name=args.profile)
+s3 = session.client('s3')
+
+bucket = "test-datalake-curated12"
+target_prefix = "source=test lidar/" # Prefix to filter folder
+
+def rename_part_files(bucket):
+paginator = s3.get_paginator('list_objects_v2')
+
+# Paginate only objects under target folder
+for page in paginator.paginate(Bucket=bucket, Prefix=target_prefix):
+if 'Contents' not in page:
+continue
+
+for obj in page['Contents']:
+key = obj['Key']
+print(f"🔍 Checking key: '{key}'")
+
+# Match only the part file and capture batch_id
+match = re.search(r"(.*?/Batch_id=([^/]+))/part-[^/]+\.json$", key,
+re.IGNORECASE)
+if not match:
+print("❌ No part file, skipping\n")
+continue
+
+folder_path = match.group(1) # Folder path including Batch_id=...
+batch_id = match.group(2) # Batch_id value
+
+# Only rename file, folder unchanged
+new_key = f"{folder_path}/{batch_id}.json"
+
+print(f"📄 Renaming file:\n Old → {key}\n New → {new_key} ✅\n")
+
+# Copy old file to new key
+s3.copy_object(
+Bucket=bucket,
+CopySource={'Bucket': bucket, 'Key': key},
+Key=new_key
+)
+# Delete old file
+s3.delete_object(Bucket=bucket, Key=key)
+
+if __name__ == "__main__":
+print(f"🚀 Starting rename operation in bucket '{bucket}' for prefix
+'{target_prefix}'\n")
+rename_part_files(bucket)
+print("\n✅ Rename operation completed!")

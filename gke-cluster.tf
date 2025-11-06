@@ -17,3 +17,4 @@ resource "google_container_cluster" "primary" {
 
   ip_allocation_policy {}
 }
+ 
